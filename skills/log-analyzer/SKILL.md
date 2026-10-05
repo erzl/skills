@@ -33,7 +33,7 @@ python3 $S grep <paths> -e 'RE1' -e 'RE2'      # entries matching ALL patterns (
 
 Notes:
 - Patterns are Python regexes applied to the whole (multi-line) entry. Use `-i` for
-  case-insensitive search (customer names are often cased inconsistently, e.g. `Vallei53`).
+  case-insensitive search (customer names are often cased inconsistently, e.g. `Acme42` vs `acme42`).
 - Always cap output while exploring (`--max`, `--first-line`, `--max-chars`). One entry can be
   a 50 KB JSON payload; dumping thousands of them floods the context.
 - `--extract` turns each matching entry into a row of named fields. This is the best way to
@@ -48,7 +48,7 @@ Notes:
 ### 1. Inventory
 Run `inventory` (or `unzip -l` / `ls -laS` for a quick look). Note the number of files, total
 size, biggest file, date range, and whether there are rotated parts (`.0.log`, `.1.log`), which
-all belong to the same day. Mention this scope in the answer ("searched 280 files, Jan 1–Oct 5").
+all belong to the same day. Mention this scope in the answer ("searched 120 files, Mar 1–Jun 30").
 Don't extract archives to disk unless a tool truly needs it; logscan reads them in place.
 
 ### 2. Learn the vocabulary
@@ -74,8 +74,8 @@ Common traps, worth checking explicitly:
 - **Flags in payloads**: `matched=false` inside an object is a state, not an event.
 - **Duplicates/retries**: the same ID can be processed several times; also look for
   "already matched/processed" lines and dedupe by the business key.
-- **Different client/sub-account names** for the same customer (`X_main`, `X_kiosk`,
-  `X_mainSlave01`). Match on the shared part and report which variants appear.
+- **Different client/sub-account names** for the same customer (`X_main`, `X_web`,
+  `X_worker01`). Match on the shared part and report which variants appear.
 
 If a downstream response confirms success (HTTP status, API XML/JSON message), check that too,
 e.g. count responses with a non-success status among the relevant entries.
@@ -100,20 +100,23 @@ say so plainly and show what you searched for.
 
 ## Example
 
-Question: "Find all vallei53 invoices that were matched with a journal entry" on a zip of
-280 Java service logs (244 MB).
+(Names, IDs and numbers below are fictional.)
 
-1. `inventory` → 280 files, 2026-01-01 … 2026-10-05, largest 10.7 MB.
-2. `grep -i -e vallei53 -e match --count`, then sample → finds `CreateJournalEntry` lines:
-   `Resolved invoiceRef=… matched=false` (state), `[invoiceRef test mode] Would create journal
-   entry … then match` (dry run), `MatchSetService Uploading MatchSet` (attempt),
-   `MatchSets upload response … Afgeletterd` (Exact confirmation),
-   `Matched invoiceRef='1-5068-7292' (entry 267061279) with payment entry 26903590` (outcome).
-3. Evidence line = `Matched invoiceRef=…`; all MatchSet responses are success (type 2).
+Question: "Find all acme42 invoices that were reconciled with a payment" on a zip of
+120 Java service logs (150 MB).
+
+1. `inventory` → 120 files, 2026-03-01 … 2026-06-30, largest 9 MB.
+2. `grep -i -e acme42 -e match --count`, then sample → finds `PaymentService` lines:
+   `Resolved invoiceRef=… matched=false` (state), `[test mode] Would create payment entry …
+   then match` (dry run), `MatchService Uploading match` (attempt),
+   `Match upload response … status=OK` (accounting API confirmation),
+   `Matched invoiceRef='INV-1001' (entry 500123) with payment entry 900456` (outcome).
+3. Evidence line = `Matched invoiceRef=…`; all match upload responses are successes.
 4. Extract:
    ```bash
-   python3 $S grep archived.zip -i -e vallei53 -e "Matched invoiceRef" --format csv --extract \
+   python3 $S grep logs.zip -i -e acme42 -e "Matched invoiceRef" --format csv --extract \
      "\[(?P<client>[^\]]+)\] Matched invoiceRef='(?P<invoice>[^']+)' \(entry (?P<invoice_entry>\d+)\) with payment entry (?P<payment_entry>\d+)"
    ```
-5. Report: 15 invoices (25 Sep – 4 Oct), table of invoice / Exact entry / payment entry / date /
-   client; caveats: 46 test-mode dry runs excluded, 2 "already matched" skips, no failed uploads.
+5. Report: 12 invoices (2 May – 14 Jun), table of invoice / invoice entry / payment entry /
+   date / client; caveats: 30 test-mode dry runs excluded, 3 "already matched" skips,
+   no failed uploads.

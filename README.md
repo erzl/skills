@@ -12,8 +12,7 @@ A collection of custom [Skills](https://support.claude.com/en/articles/12512180-
 
 | Skill | What it does |
 |-------|--------------|
-| `brand-guidelines` | _Short description of what this skill does and when Claude uses it._ |
-| `meeting-notes` | _Short description of what this skill does and when Claude uses it._ |
+| `analyze-log` | Awnser questions about log files using regular  business terms |
 
 > Replace the rows above with your actual skills. Each skill lives in its own folder under [`skills/`](skills/).
 
